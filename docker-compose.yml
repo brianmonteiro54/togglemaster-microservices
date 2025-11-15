@@ -141,7 +141,7 @@ services:
     environment:
       PORT: "8001"
       DATABASE_URL: "postgres://authuser:authpass123@postgres-auth:5432/authdb?sslmode=disable"
-      MASTER_KEY: "super-secret-master-key-2024"
+      MASTER_KEY: ${MASTER_KEY}
     ports:
       - "8001:8001"
     depends_on:
@@ -266,7 +266,7 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-dummy}
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-dummy}
       AWS_SQS_URL: ${SQS_QUEUE_URL:-https://sqs.us-east-1.amazonaws.com/dummy/queue}
-      AWS_DYNAMODB_TABLE: "togglemaster-analytics"
+      AWS_DYNAMODB_TABLE: "ToggleMasterAnalytics"
       DYNAMODB_ENDPOINT_URL: "http://dynamodb-local:8000"
     ports:
       - "8005:8005"
