@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentação
+README.md
+*.md
+LICENSE
+
+# Arquivos de configuração local
+.env
+.env.local
+.env.*.local
+
+# Diretórios de build/cache
+bin/
+build/
+dist/
+
+# Arquivos de teste
+*_test.go
+**/*_test.go
+testdata/
+
+# Arquivos temporários
+*.tmp
+*.log
+*.swp
+*.swo
+*~
+
+# IDE / Editor
+.vscode/
+.idea/
+*.iml
+.DS_Store
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml

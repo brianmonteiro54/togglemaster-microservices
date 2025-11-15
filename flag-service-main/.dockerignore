@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentação
+README.md
+*.md
+LICENSE
+
+# Python cache e bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Ambientes virtuais
+venv/
+env/
+ENV/
+.venv
+
+# Arquivos de configuração local
+.env
+.env.local
+.env.*.local
+
+# Testes
+tests/
+test/
+*.test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Arquivos temporários
+*.tmp
+*.log
+*.swp
+*.swo
+*~
+.cache/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.iml
+.DS_Store
+.vscode/
+*.code-workspace
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
