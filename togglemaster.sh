@@ -265,7 +265,6 @@ Bancos de Dados:
   - PostgreSQL Targeting: localhost:5434
   - Redis:               localhost:6379
   - DynamoDB Local:      localhost:8000
-  - LocalStack SQS:      localhost:4566
 EOF
 }
 

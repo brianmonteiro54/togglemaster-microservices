@@ -229,10 +229,11 @@ services:
       FLAG_SERVICE_URL: "http://flag-service:8002"
       TARGETING_SERVICE_URL: "http://targeting-service:8003"
       AWS_REGION: "us-east-1"
+      SERVICE_API_KEY: ${SERVICE_API_KEY:-dummy-service-key} # Adicione esta linha
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
-      SQS_QUEUE_URL: ${SQS_QUEUE_URL}
+      AWS_SQS_URL: ${SQS_QUEUE_URL}
     ports:
       - "8004:8004"
     depends_on:
