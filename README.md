@@ -78,7 +78,7 @@ chmod +x togglemaster.sh
 
 ---
 
-## 🔐 Configuração da API Key
+## 🔐 Configuração da API Key e DynamoDB
 
 ### ⚠️ Atenção: Processo de Duas Etapas
 
@@ -125,6 +125,19 @@ SERVICE_API_KEY=
 
 # Depois (com a chave gerada):
 SERVICE_API_KEY=tm_key_6e2134acbde1dc8761629e10475b7242d18e647707424924b4572a7035c5386b
+```
+
+**Crie a tabela do DynamoDB Local**: O **analytics-service** precisa desta tabela para gravar os eventos. Use o comando abaixo para criá-la no dynamodb-local
+
+```bash
+aws dynamodb create-table \
+    --table-name ToggleMasterAnalytics \
+    --attribute-definitions \
+        AttributeName=event_id,AttributeType=S \
+    --key-schema \
+        AttributeName=event_id,KeyType=HASH \
+    --billing-mode PAY_PER_REQUEST \
+    --endpoint-url http://localhost:8000
 ```
 
 ### Segunda Inicialização (Final)
