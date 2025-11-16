@@ -89,7 +89,7 @@ services:
   # ===========================================================================
   
   redis:
-    image: redis:7-alpine
+    image: redis:8.4-rc1-alpine3.22
     container_name: togglemaster-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass redispass123
@@ -112,13 +112,14 @@ services:
   init-db-permissions:
     # Este é um "Init Container" que roda como root APENAS para uma tarefa:
     # Corrigir a permissão do volume 'dynamodb-data' para o usuário 1000.
-    image: alpine:latest
+    image: alpine:3.22.2
+    container_name: togglemaster-init-db-permissions
     user: root 
     command: ["chown", "-R", "1000:1000", "/data"] 
     volumes:
       - dynamodb-data:/data # Monta o MESMO volume do dynamo
   dynamodb-local:
-    image: amazon/dynamodb-local:latest
+    image: amazon/dynamodb-local:3.1.0
     container_name: togglemaster-dynamodb-local
     restart: unless-stopped
     command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
