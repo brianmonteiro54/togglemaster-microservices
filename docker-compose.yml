@@ -109,6 +109,14 @@ services:
   # BANCO DE DADOS NoSQL - DynamoDB Local
   # ===========================================================================
   
+  init-db-permissions:
+    # Este é um "Init Container" que roda como root APENAS para uma tarefa:
+    # Corrigir a permissão do volume 'dynamodb-data' para o usuário 1000.
+    image: alpine:latest
+    user: root 
+    command: ["chown", "-R", "1000:1000", "/data"] 
+    volumes:
+      - dynamodb-data:/data # Monta o MESMO volume do dynamo
   dynamodb-local:
     image: amazon/dynamodb-local:latest
     container_name: togglemaster-dynamodb-local
@@ -229,7 +237,7 @@ services:
       FLAG_SERVICE_URL: "http://flag-service:8002"
       TARGETING_SERVICE_URL: "http://targeting-service:8003"
       AWS_REGION: "us-east-1"
-      SERVICE_API_KEY: ${SERVICE_API_KEY:-dummy-service-key} # Adicione esta linha
+      SERVICE_API_KEY: ${SERVICE_API_KEY:-dummy-service-key}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
@@ -280,11 +288,6 @@ services:
       start_period: 15s
     networks:
       - togglemaster-network
-
-  # ===========================================================================
-  # UTILITÁRIO - Inicializador de Recursos AWS (SQS Queue e DynamoDB Table)
-  # ===========================================================================
-  
 # =============================================================================
 # VOLUMES PERSISTENTES
 # =============================================================================
