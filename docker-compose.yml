@@ -134,6 +134,10 @@ services:
       timeout: 5s       # Espera 5s pela resposta
       retries: 5        # Tenta 5 vezes
       start_period: 15s # Dá 15s para o Java iniciar antes da 1ª verificação
+    depends_on:
+      init-db-permissions:
+        # Só inicia o dynamo DEPOIS que o 'init' completou com sucesso
+        condition: service_completed_successfully
   
   # ===========================================================================
   # MICROSSERVIÇOS
