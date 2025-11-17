@@ -40,36 +40,7 @@ cd togglemaster-microservices
 cp .env.example .env
 ```
 
-**Edite o arquivo `.env` com suas credenciais da AWS:**
-
-```dotenv
-# =============================================================================
-# AWS CREDENTIALS
-# =============================================================================
-AWS_ACCESS_KEY_ID=sua_access_key_aqui
-AWS_SECRET_ACCESS_KEY=sua_secret_key_aqui
-AWS_SESSION_TOKEN=seu_session_token_aqui
-
-# URL da fila SQS (será preenchida após executar setup-aws.sh)
-SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/SEU_ACCOUNT_ID/togglemaster-events
-
-# =============================================================================
-# SERVICE CREDENTIALS
-# ============================================================================
-SERVICE_API_KEY=tm_key_xxxx # ATENÇÃO: Será configurado após a primeira inicialização
-MASTER_KEY=super-secret-master-key-2026
-```
-
-### Passo 3: Configurar Recursos AWS
-
-```bash
-# Tornar o script executável
-chmod +x setup-aws.sh
-
-# Executar configuração da AWS (cria a fila SQS)
-./setup-aws.sh
-```
-### Passo 4: Dar Permissão ao Script Principal
+### Passo 3: Dar Permissão ao Script Principal
 
 ```bash
 # Tornar o script togglemaster executável
@@ -78,7 +49,7 @@ chmod +x togglemaster.sh
 
 ---
 
-## 🔐 Configuração da API Key e DynamoDB
+## 🔐 Configuração da API Key
 
 ### ⚠️ Atenção: Processo de Duas Etapas
 
@@ -127,19 +98,6 @@ SERVICE_API_KEY=
 SERVICE_API_KEY=tm_key_a53ad846291f1c86f0aac1b1e9af2c4b09eb86c3d5b7ed4c6cdd64c541fc7766
 ```
 
-**Crie a tabela do DynamoDB Local**: O **analytics-service** precisa desta tabela para gravar os eventos. Use o comando abaixo para criá-la no dynamodb-local
-
-```bash
-aws dynamodb create-table \
-    --table-name ToggleMasterAnalytics \
-    --attribute-definitions \
-        AttributeName=event_id,AttributeType=S \
-    --key-schema \
-        AttributeName=event_id,KeyType=HASH \
-    --billing-mode PAY_PER_REQUEST \
-    --endpoint-url http://localhost:8000
-```
-
 ### Segunda Inicialização (Final)
 
 1. **Pare os serviços:**
@@ -153,8 +111,6 @@ aws dynamodb create-table \
 ```bash
 ./togglemaster.sh start
 ```
-
-
 ---
 
 ## 🔧 Comandos Úteis

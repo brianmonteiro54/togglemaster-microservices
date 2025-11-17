@@ -38,7 +38,7 @@ func main() {
 
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL == "" {
-		log.Fatal("REDIS_URL deve ser definida (ex: redis://localhost:6379)")
+		log.Fatal("REDIS_URL deve ser definida (ex: redis://localhost:6379/0)")
 	}
 
 	flagSvcURL := os.Getenv("FLAG_SERVICE_URL")
@@ -51,9 +51,15 @@ func main() {
 		log.Fatal("TARGETING_SERVICE_URL deve ser definida")
 	}
 
-	// SQS é opcional no dev local, mas obrigatório em prod
+	// SQS
 	sqsQueueURL := os.Getenv("AWS_SQS_URL")
 	awsRegion := os.Getenv("AWS_REGION")
+	sqsEndpoint := os.Getenv("AWS_ENDPOINT_URL")
+
+	log.Printf("AWS_REGION=%s", awsRegion)
+	log.Printf("AWS_SQS_URL=%s", sqsQueueURL)
+	log.Printf("AWS_ENDPOINT_URL=%s", sqsEndpoint)
+
 	if sqsQueueURL == "" {
 		log.Println("Atenção: AWS_SQS_URL não definida. Eventos não serão enviados.")
 	}
@@ -62,7 +68,7 @@ func main() {
 	}
 
 	// --- Inicializa Clientes ---
-	
+
 	// Cliente Redis
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
@@ -77,12 +83,20 @@ func main() {
 	// Cliente SQS (AWS SDK)
 	var sqsSvc *sqs.SQS
 	if sqsQueueURL != "" {
-		sess, err := session.NewSession(&aws.Config{Region: aws.String(awsRegion)})
+		awsCfg := aws.NewConfig().WithRegion(awsRegion)
+		if sqsEndpoint != "" {
+			awsCfg = awsCfg.WithEndpoint(sqsEndpoint)
+			log.Printf("Usando endpoint custom SQS: %s", sqsEndpoint)
+		} else {
+			log.Println("Nenhum AWS_ENDPOINT_URL definido; usando endpoint padrão da AWS para SQS (NÃO recomendado em dev).")
+		}
+
+		sess, err := session.NewSession(awsCfg)
 		if err != nil {
 			log.Fatalf("Não foi possível criar sessão AWS: %v", err)
 		}
 		sqsSvc = sqs.New(sess)
-		log.Println("Cliente SQS inicializado com sucesso.")
+		log.Println("Cliente SQS inicializado com sucesso (evaluation-service).")
 	}
 
 	// Cliente HTTP (com timeout)
