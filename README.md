@@ -143,19 +143,6 @@ Depois que os containers estiverem rodando (após a **"Segunda Inicialização"*
 
 ---
 
-## 1) Auth Service (Porta **8001**)
-
-O **auth-service** é usado para criar e validar chaves. Você já o utilizou para criar a chave principal, mas também pode usá-lo para testar a validação.
-
-### a) Validar sua chave de API
-> Substitua `tm_key_...` pela sua chave.
-
-```bash
-curl http://localhost:8001/validate \
--H "Authorization: Bearer tm_key_a53ad846291f1c86f0aac1b1e9af2c4b09eb86c3d5b7ed4c6cdd64c541fc7766"
-```
-## 🧪 Usando a Aplicação (Exemplos)
-
 ### 1) Auth Service (8001)
 
 O **auth-service** é usado para criar e validar chaves. Você já o utilizou para criar a chave principal, mas também pode usá-lo para testar a validação.
@@ -209,6 +196,11 @@ curl http://localhost:8002/flags \
   -H "Authorization: Bearer tm_key_a53ad846291f1c86f0aac1b1e9af2c4b09eb86c3d5b7ed4c6cdd64c541fc7766"
 ```
 
+**Retorno esperado:**
+```json
+[{"created_at":"Sun, 16 Nov 2025 20:59:00 GMT","description":"Ativa o novo dashboard para usu\u00e1rios","id":1,"is_enabled":true,"name":"enable-new-dashboard","updated_at":"Mon, 17 Nov 2025 06:11:23 GMT"}]
+```
+
 **Desativar a Flag (PUT):**
 ```bash
 curl -X PUT http://localhost:8002/flags/enable-new-dashboard \
@@ -236,6 +228,21 @@ curl -X POST http://localhost:8003/rules \
           "value": 50
         }
       }'
+```
+
+**Retorno esperado:**
+```json
+{
+	"created_at": "Sun, 16 Nov 2025 16:31:27 GMT",
+	"flag_name": "enable-new-dashboard",
+	"id": 1,
+	"is_enabled": true,
+	"rules": {
+		"type": "PERCENTAGE",
+		"value": 50
+	},
+	"updated_at": "Sun, 16 Nov 2025 16:31:27 GMT"
+}
 ```
 
 **Buscar a Regra criada:**
