@@ -556,7 +556,7 @@ main() {
         
         while [ -z "$aws_secret_key" ]; do
             echo -n "AWS Secret Access Key: "
-            read -rs aws_secret_key
+            read -r aws_secret_key
             echo ""
             [ -z "$aws_secret_key" ] && error "Secret Key não pode ser vazio"
         done
