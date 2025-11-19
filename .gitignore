@@ -2,3 +2,5 @@
 # ARQUIVO .gitignore - ToggleMaster Microservices
 # =============================================================================
 .env
+setup.log
+backups/

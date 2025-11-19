@@ -33,21 +33,58 @@ git clone https://github.com/brianmonteiro54/togglemaster-microservices.git
 cd togglemaster-microservices
 ```
 
-### Passo 2: Configurar Variáveis de Ambiente
+### Passo 2: Dar Permissão aos Scripts
 
 ```bash
-# Copiar o arquivo de exemplo
-cp .env.example .env
+chmod +x setup-credentials.sh togglemaster.sh
 ```
 
-### Passo 3: Dar Permissão ao Script Principal
+### Passo 3: Gerar o .env com o Setup Automatizado
 
 ```bash
-# Tornar o script togglemaster executável
-chmod +x togglemaster.sh
+./setup-credentials.sh
 ```
+
+## 🌍 Escolha do Ambiente de Execução
+
+> Ao executar o script **`./setup-credentials.sh`**, você será solicitado a escolher entre duas configurações de ambiente.
+---
+
+### 🔧 Opção 1: Ambiente Local (Docker + LocalStack)
+
+Esta opção é **recomendada para desenvolvimento** e testes sem custo.
+
+* **Recursos Utilizados:**
+    * **LocalStack**
+    * **DynamoDB Local**
+
+* **Configuração no `.env` (Automática):**
+    ```
+    AWS_ENDPOINT_URL=http://localstack:4566
+    DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
+    SQS_QUEUE_URL=http://localstack:4566/000000000000/togglemaster-events
+    AWS_ACCESS_KEY_ID=... (dummy)
+    AWS_SECRET_ACCESS_KEY=... (dummy)
+    ```
+    > **Nota sobre Credenciais:** Mesmo no modo local, o **LocalStack** e os **SDKs da AWS** esperam que as variáveis `AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY` estejam preenchidas. O script gera automaticamente credenciais "dummy" (fictícias) apenas para satisfazer essa exigência, sem qualquer conexão com uma conta AWS real.
 
 ---
+
+### ☁️ Opção 2: Ambiente AWS (DynamoDB e SQS)
+
+* **Requisitos:**
+    * **AWS CLI** configurado e instalado.
+    * Credenciais válidas Access Key, Secret Key (Se estiver utilizando a AWS Academy, será necessário configurar o token de sessão (AWS_SESSION_TOKEN).
+  
+* **Recursos Criados/Verificados:** O script se conecta à sua conta AWS, valida suas credenciais e cria ou verifica se já existem:
+    * **Tabela DynamoDB**: `ToggleMasterAnalytics`
+    * **Fila SQS**: `togglemaster-events`
+    * A URL da fila gerada é gravada automaticamente em `SQS_QUEUE_URL` no arquivo `.env`.
+
+---
+
+> **⚠️ Importante:** A execução do `setup-credentials.sh` limpa o ambiente Docker do projeto (todos os containers e **volumes `togglemaster-*`**) para garantir um estado limpo a cada nova configuração de ambiente.
+-------------------------------------------------------
 
 ## 🔐 Configuração da API Key
 
@@ -70,7 +107,7 @@ A configuração da `SERVICE_API_KEY` requer **duas inicializações** do sistem
 ```bash
 curl -X POST http://localhost:8001/admin/keys \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer super-secret-master-key-2026" \
+  -H "Authorization: Bearer <MASTER_KEY>" \
   -d '{"name": "evaluation-service-key"}'
 ```
 
