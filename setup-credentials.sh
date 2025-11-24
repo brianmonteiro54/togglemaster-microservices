@@ -39,21 +39,22 @@ error() {
 
 # Função para mensagens de sucesso
 success() {
-    echo -e "${GREEN}✅ $*${NC}"
+    echo -e "${GREEN}✅ $*${NC}" >&2
     log "SUCCESS: $*"
 }
 
 # Função para mensagens de aviso
 warning() {
-    echo -e "${YELLOW}⚠️  $*${NC}"
+    echo -e "${YELLOW}⚠️  $*${NC}" >&2
     log "WARN: $*"
 }
 
 # Função para mensagens informativas
 info() {
-    echo -e "${BLUE}ℹ️  $*${NC}"
+    echo -e "${BLUE}ℹ️  $*${NC}" >&2
     log "INFO: $*"
 }
+
 
 # Função para gerar senhas seguras
 generate_password() {
@@ -416,46 +417,7 @@ EOF
     echo "$postgres_auth_user"
     echo "$postgres_flag_user"
     echo "$postgres_targeting_user"
-}
-
-# Função para atualizar .gitignore
-update_gitignore() {
-    if [ -f ".gitignore" ]; then
-        if ! grep -q "^\.env$" .gitignore 2>/dev/null; then
-            echo ".env" >> .gitignore
-            echo ".env.backup.*" >> .gitignore
-            echo "setup.log" >> .gitignore
-            success ".env adicionado ao .gitignore"
-        fi
-    else
-        cat > .gitignore << 'EOF'
-# Environment files
-.env
-.env.backup.*
-setup.log
-
-# Keep example
-!.env.example
-
-# Docker volumes
-postgres-*-data/
-redis-data/
-dynamodb-data/
-localstack-data/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-EOF
-        success ".gitignore criado"
-    fi
+    echo "$redis_password"
 }
 
 # =============================================================================
@@ -467,7 +429,7 @@ main() {
     echo "=== Setup iniciado em $(date) ===" > "$LOG_FILE"
     
     echo -e "${BLUE}═══════════════════════════════════════════════════════${NC}"
-    echo -e "${BLUE}   ToggleMaster - Setup de Credenciais v2.1           ${NC}"
+    echo -e "${BLUE}   ToggleMaster - Setup de Credenciais                 ${NC}"
     echo -e "${BLUE}═══════════════════════════════════════════════════════${NC}"
     echo ""
     
@@ -631,10 +593,8 @@ main() {
     local postgres_auth_user=$(echo "$env_info" | sed -n '2p')
     local postgres_flag_user=$(echo "$env_info" | sed -n '3p')
     local postgres_targeting_user=$(echo "$env_info" | sed -n '4p')
-    
-    # Atualizar .gitignore
-    update_gitignore
-    
+    local redis_password=$(echo "$env_info" | sed -n '5p')
+        
     # Resumo final
     echo ""
     echo -e "${BLUE}═══════════════════════════════════════════════════════${NC}"
@@ -661,17 +621,15 @@ main() {
     echo ""
     echo -e "${YELLOW}📝 Credenciais geradas:${NC}"
     echo ""
-    echo -e "  ${BLUE}Master Key:${NC} ${master_key:0:20}..."
+    echo -e "  ${BLUE}Master Key:${NC} ${master_key}"
     echo -e "  ${BLUE}PostgreSQL Auth:${NC} ${postgres_auth_user}"
     echo -e "  ${BLUE}PostgreSQL Flag:${NC} ${postgres_flag_user}"
     echo -e "  ${BLUE}PostgreSQL Targeting:${NC} ${postgres_targeting_user}"
-    echo -e "  ${BLUE}Redis:${NC} [senha gerada]"
+    echo -e "  ${BLUE}Redis:${NC} ${redis_password}"
     echo ""
     echo -e "${YELLOW}⚠️  IMPORTANTE:${NC}"
     echo -e "  ${RED}1.${NC} Volumes Docker foram limpos"
-    echo -e "  ${RED}2.${NC} ${RED}NUNCA${NC} faça commit do arquivo ${GREEN}.env${NC}"
-    echo -e "  ${RED}3.${NC} Use ${GREEN}.env.example${NC} como referência"
-    echo -e "  ${RED}4.${NC} Gere a SERVICE_API_KEY conforme o README"
+    echo -e "  ${RED}2.${NC} Gere a SERVICE_API_KEY conforme o README"
     echo ""
     echo -e "${GREEN}✅ Próximo passo:${NC} ./togglemaster.sh start"
     echo ""
