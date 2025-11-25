@@ -379,12 +379,10 @@ EOF
     # Configurar endpoints baseado no modo
     if [ "$mode" = "aws" ]; then
         cat >> .env << EOF
-# DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000  # Comentado - usando AWS Real
 # AWS_ENDPOINT_URL=http://localstack:4566  # Comentado - usando AWS Real
 EOF
     else
         cat >> .env << EOF
-DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
 AWS_ENDPOINT_URL=http://localstack:4566
 EOF
     fi
@@ -454,7 +452,7 @@ main() {
     echo ""
     echo -e "${CYAN}🌍 Escolha o ambiente de execução:${NC}"
     echo ""
-    echo -e "  ${GREEN}1)${NC} Local (Docker com LocalStack e DynamoDB Local)"
+    echo -e "  ${GREEN}1)${NC} Local (Docker com LocalStack [SQS, DynamoDB] )"
     echo -e "     ${BLUE}→${NC} Ideal para desenvolvimento e testes"
     echo -e "     ${BLUE}→${NC} Sem custos AWS"
     echo ""
@@ -614,8 +612,7 @@ main() {
         echo -e "${CYAN}🏠 Modo: Local (Docker)${NC}"
         echo ""
         echo -e "${GREEN}Serviços locais que serão usados:${NC}"
-        echo -e "  ${BLUE}•${NC} LocalStack (emulação SQS)"
-        echo -e "  ${BLUE}•${NC} DynamoDB Local"
+        echo -e "  ${BLUE}•${NC} LocalStack (emulação SQS, DynamoDB)"
     fi
     
     echo ""

@@ -61,7 +61,6 @@ Esta opção é **recomendada para desenvolvimento** e testes sem custo.
 * **Configuração no `.env` (Automática):**
     ```
     AWS_ENDPOINT_URL=http://localstack:4566
-    DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
     SQS_QUEUE_URL=http://localstack:4566/000000000000/togglemaster-events
     AWS_ACCESS_KEY_ID=... (dummy)
     AWS_SECRET_ACCESS_KEY=... (dummy)
@@ -164,10 +163,10 @@ Consulte a [📘 Referência de API](./API_REFERENCE.md).
 
 | Serviço             | Porta | Descrição                                                     | Endpoints principais (exemplos)                           |
 |---------------------|:----:|---------------------------------------------------------------|-----------------------------------------------------------|
-| **Auth Service**    | 8001 | Criação/validação de chaves de API                            | `POST /admin/keys`, `GET /validate`                       |
-| **Flag Service**    | 8002 | CRUD de *feature flags*                                       | `GET /flags`, `POST /flags`, `PUT /flags/{name}`          |
-| **Targeting Service**| 8003 | Regras de segmentação/rollout                                 |`POST /rules`,`GET /rules/{flag_name}`,`PUT /rules/{flag_name}`|
-| **Evaluation Service**| 8004 | Decide exibir/ocultar *feature* por usuário                  | `GET /evaluate?user_id=...&flag_name=...`                 |
+| **Auth Service**    | 8001 | Criação/validação de chaves de API                            | `POST /admin/keys`, `GET /validate`,   `GET /health`                    |
+| **Flag Service**    | 8002 | CRUD de *feature flags*                                       |`POST /flags`, `GET /flags`, `GET /health`, `PUT /flags/{name}`          |
+| **Targeting Service**| 8003 | Regras de segmentação/rollout                                 |`POST /rules`,`GET /rules/{flag_name}`,`GET /health`, `PUT /rules/{flag_name}`|
+| **Evaluation Service**| 8004 | Decide exibir/ocultar *feature* por usuário                  | `GET /evaluate?user_id=...&flag_name=...`, `GET /health`                 |
 | **Analytics Service**| 8005 | *Worker* que consome SQS e grava no DynamoDB (somente health) | `GET /health`                                             |
 
 ---
@@ -336,6 +335,6 @@ curl http://localhost:8005/health
 ```bash
 aws dynamodb scan \
     --table-name ToggleMasterAnalytics \
-    --endpoint-url http://localhost:8000
+    --endpoint-url http://localhost:4566
 ```
 

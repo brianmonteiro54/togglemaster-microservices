@@ -129,12 +129,12 @@ start_services() {
     echo ""
     if [ "$mode" = "aws" ]; then
         print_info "Modo detectado: AWS Real ☁️"
-        print_warning "LocalStack e DynamoDB Local NÃO serão iniciados"
+        print_warning "LocalStack NÃO será iniciado"
         echo ""
         COMPOSE_PROFILES="" docker-compose up -d
     else
         print_info "Modo detectado: Local 🏠"
-        print_info "Iniciando com LocalStack e DynamoDB Local"
+        print_info "Iniciando com LocalStack(SQS, DynamoDB) "
         echo ""
         COMPOSE_PROFILES="local" docker-compose up -d
     fi
@@ -533,8 +533,7 @@ show_mode() {
     else
         print_info "Modo de Execução: Local 🏠"
         echo ""
-        echo "  • DynamoDB: Local (porta 8000)"
-        echo "  • SQS: LocalStack (porta 4566)"
+        echo "  • SQS, DynamoDB: LocalStack (porta 4566)"
         echo "  • Fila SQS: http://localstack:4566/000000000000/togglemaster-events"
     fi
     echo ""
