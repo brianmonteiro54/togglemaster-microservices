@@ -7,7 +7,7 @@ version: '3.9'
 # - 5 Microsserviços (auth, flag, targeting, evaluation, analytics)
 # - 3 Instâncias PostgreSQL (uma para cada serviço que precisa)
 # - 1 Redis (cache para evaluation-service)
-# - 1 DynamoDB Local (para analytics-service)
+# - 1 DynamoDB (para analytics-service)
 # - 1 LocalStack (emulação SQS)
 # =============================================================================
 
@@ -98,7 +98,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "PING"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -213,7 +213,8 @@ services:
     restart: unless-stopped
     environment:
       SERVICES: "sqs, dynamodb"
-      DEBUG: "1"
+      PERSISTENCE: "1"
+      DEBUG: "0"
       AWS_DEFAULT_REGION: ${AWS_REGION}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
@@ -245,6 +246,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8001"
+      APP_ENV: "production"
       DATABASE_URL: "postgres://${POSTGRES_AUTH_USER}:${POSTGRES_AUTH_PASSWORD}@postgres-auth:5432/${POSTGRES_AUTH_DB}?sslmode=disable"
       MASTER_KEY: ${MASTER_KEY}
     ports:
@@ -270,6 +272,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8002"
+      APP_ENV: "production"
       DATABASE_URL: "postgresql://${POSTGRES_FLAG_USER}:${POSTGRES_FLAG_PASSWORD}@postgres-flag:5432/${POSTGRES_FLAG_DB}"
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
     ports:
@@ -297,6 +300,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8003"
+      APP_ENV: "production"
       DATABASE_URL: "postgresql://${POSTGRES_TARGETING_USER}:${POSTGRES_TARGETING_PASSWORD}@postgres-targeting:5432/${POSTGRES_TARGETING_DB}"
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
       FLAG_SERVICE_URL: ${FLAG_SERVICE_URL}
@@ -327,10 +331,9 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8004"
-      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
-      REDIS_ADDR: "redis:6379"
+      APP_ENV: "production"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_DB: "0"
       FLAG_SERVICE_URL: ${FLAG_SERVICE_URL}
       TARGETING_SERVICE_URL: ${TARGETING_SERVICE_URL}
       AWS_REGION: ${AWS_REGION}
@@ -367,6 +370,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8005"
+      APP_ENV: "production"
       AWS_REGION: ${AWS_REGION}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
