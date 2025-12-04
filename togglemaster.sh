@@ -544,7 +544,7 @@ show_info() {
     print_info "Informações do Sistema:"
     echo ""
     echo "📦 Containers:"
-    docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+    docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
     echo ""
     echo "💾 Volumes:"
     docker volume ls --filter name=togglemaster
