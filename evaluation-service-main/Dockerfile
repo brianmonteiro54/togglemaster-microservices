@@ -25,7 +25,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # =============================================================================
 # Stage 2: Final - Imagem de produção mínima
 # =============================================================================
-FROM alpine:3.22
+FROM alpine:3.23
 
 # Instala apenas certificados SSL (necessário para HTTPS e AWS SDK)
 RUN apk add --no-cache ca-certificates tzdata
