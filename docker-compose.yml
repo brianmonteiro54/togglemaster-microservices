@@ -401,8 +401,6 @@ volumes:
     name: togglemaster-postgres-targeting-data
   redis-data:
     name: togglemaster-redis-data
-  dynamodb-data:
-    name: togglemaster-dynamodb-data
   localstack-data:
     name: togglemaster-localstack-data
 
