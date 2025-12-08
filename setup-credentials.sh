@@ -324,7 +324,7 @@ create_env_file() {
 # ToggleMaster - Variáveis de Ambiente
 # =============================================================================
 # Gerado automaticamente em: $(date)
-# Modo de execução: $([ "$mode" = "aws" ] && echo "AWS Real" || echo "Local (Docker)")
+# Modo de execução: $([ "$mode" = "production" ] && echo "AWS Real" || echo "desenvolvimento (Docker)")
 # =============================================================================
 
 # =============================================================================
@@ -377,7 +377,7 @@ SQS_QUEUE_URL=${sqs_queue_url}
 EOF
 
     # Configurar endpoints baseado no modo
-    if [ "$mode" = "aws" ]; then
+    if [ "$mode" = "production" ]; then
         cat >> .env << EOF
 # AWS_ENDPOINT_URL=http://localstack:4566  # Comentado - usando AWS Real
 EOF
@@ -471,7 +471,7 @@ main() {
         fi
     done
     
-    local mode="local"
+    local mode="desenvolvimento"
     local aws_access_key=""
     local aws_secret_key=""
     local aws_session_token=""
@@ -479,7 +479,7 @@ main() {
     local sqs_queue_url=""
     
     if [[ "$env_choice" == "2" ]]; then
-        mode="aws"
+        mode="production"
         
         # Verificar AWS CLI
         if ! command -v aws &> /dev/null; then
@@ -600,7 +600,7 @@ main() {
     echo -e "${BLUE}═══════════════════════════════════════════════════════${NC}"
     echo ""
     
-    if [ "$mode" = "aws" ]; then
+    if [ "$mode" = "production" ]; then
         echo -e "${CYAN}☁️  Modo: AWS Real${NC}"
         echo ""
         echo -e "${GREEN}Recursos AWS criados/verificados:${NC}"
@@ -609,7 +609,7 @@ main() {
         echo -e "  ${BLUE}•${NC} Fila SQS: togglemaster-events"
         echo -e "  ${BLUE}•${NC} URL da Fila: ${sqs_queue_url}"
     else
-        echo -e "${CYAN}🏠 Modo: Local (Docker)${NC}"
+        echo -e "${CYAN}🏠 Modo: desenvolvimento (Docker)${NC}"
         echo ""
         echo -e "${GREEN}Serviços locais que serão usados:${NC}"
         echo -e "  ${BLUE}•${NC} LocalStack (emulação SQS, DynamoDB)"
@@ -631,7 +631,7 @@ main() {
     echo -e "${GREEN}✅ Próximo passo:${NC} ./togglemaster.sh start"
     echo ""
     
-    if [ "$mode" = "aws" ]; then
+    if [ "$mode" = "production" ]; then
         echo -e "${PURPLE}💡 Para deletar recursos AWS:${NC}"
         echo ""
         echo "  aws dynamodb delete-table --table-name ToggleMasterAnalytics --region ${aws_region}"

@@ -155,7 +155,7 @@ services:
     networks:
       - togglemaster-network
     profiles:
-      - local
+      - desenvolvimento
 
   # Setup: Criação da Fila SQS - apenas para execução local
   init-sqs:
@@ -202,7 +202,7 @@ services:
         
         echo "🏁 [init-sqs] Finalizado com sucesso."
     profiles:
-      - local
+      - desenvolvimento
 
   # Emulador AWS: LocalStack (SQS) - apenas para execução local
   localstack:
@@ -229,7 +229,7 @@ services:
       retries: 5
       start_period: 15s
     profiles:
-      - local
+      - desenvolvimento
 
   # ===========================================================================
   # MICROSSERVIÇOS
@@ -244,7 +244,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8001"
-      APP_ENV: "production"
+      APP_ENV: ${EXECUTION_MODE}
       DATABASE_URL: "postgres://${POSTGRES_AUTH_USER}:${POSTGRES_AUTH_PASSWORD}@postgres-auth:5432/${POSTGRES_AUTH_DB}?sslmode=disable"
       MASTER_KEY: ${MASTER_KEY}
     ports:
@@ -270,7 +270,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8002"
-      APP_ENV: "production"
+      APP_ENV: ${EXECUTION_MODE}
       DATABASE_URL: "postgresql://${POSTGRES_FLAG_USER}:${POSTGRES_FLAG_PASSWORD}@postgres-flag:5432/${POSTGRES_FLAG_DB}"
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
     ports:
@@ -298,7 +298,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8003"
-      APP_ENV: "production"
+      APP_ENV: ${EXECUTION_MODE}
       DATABASE_URL: "postgresql://${POSTGRES_TARGETING_USER}:${POSTGRES_TARGETING_PASSWORD}@postgres-targeting:5432/${POSTGRES_TARGETING_DB}"
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
       FLAG_SERVICE_URL: ${FLAG_SERVICE_URL}
@@ -329,7 +329,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8004"
-      APP_ENV: "production"
+      APP_ENV: ${EXECUTION_MODE}
       REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       FLAG_SERVICE_URL: ${FLAG_SERVICE_URL}
@@ -368,7 +368,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8005"
-      APP_ENV: "production"
+      APP_ENV: ${EXECUTION_MODE}
       AWS_REGION: ${AWS_REGION}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}

@@ -101,7 +101,7 @@ Comandos Disponíveis:
     info            Informações sobre recursos utilizados
     ports           Lista portas mapeadas
     network         Informações sobre a rede
-    mode            Mostra modo de execução atual (local/aws)
+    mode            Mostra modo de execução atual (desenvolvimento/production)
 
 Exemplos:
   ./togglemaster.sh start
@@ -127,16 +127,16 @@ start_services() {
     fi
     
     echo ""
-    if [ "$mode" = "aws" ]; then
+    if [ "$mode" = "production" ]; then
         print_info "Modo detectado: AWS Real ☁️"
         print_warning "LocalStack NÃO será iniciado"
         echo ""
         COMPOSE_PROFILES="" docker-compose up -d
     else
-        print_info "Modo detectado: Local 🏠"
+        print_info "Modo detectado: desenvolvimento 🏠"
         print_info "Iniciando com LocalStack(SQS, DynamoDB) "
         echo ""
-        COMPOSE_PROFILES="local" docker-compose up -d
+        COMPOSE_PROFILES="desenvolvimento" docker-compose up -d
     fi
     
     print_success "Serviços iniciados!"
@@ -159,10 +159,10 @@ restart_services() {
     
     local mode=$(detect_execution_mode)
     
-    if [ "$mode" = "aws" ]; then
+    if [ "$mode" = "production" ]; then
         COMPOSE_PROFILES="" docker-compose restart
     else
-        COMPOSE_PROFILES="local" docker-compose restart
+        COMPOSE_PROFILES="desenvolvimento" docker-compose restart
     fi
     
     print_success "Serviços reiniciados!"
@@ -177,10 +177,10 @@ rebuild_services() {
     docker-compose down
     docker-compose build --no-cache
     
-    if [ "$mode" = "aws" ]; then
+    if [ "$mode" = "production" ]; then
         COMPOSE_PROFILES="" docker-compose up -d
     else
-        COMPOSE_PROFILES="local" docker-compose up -d
+        COMPOSE_PROFILES="desenvolvimento" docker-compose up -d
     fi
     
     print_success "Rebuild concluído!"
@@ -199,7 +199,7 @@ show_logs() {
         docker-compose logs -f --tail=100
     else
         print_info "Logs do serviço: $1"
-        docker-compose logs -f --tail=100 "$1"
+        docker compose logs -f --tail=100 "$1"
     fi
 }
 
@@ -523,7 +523,7 @@ show_mode() {
     fi
     
     echo ""
-    if [ "$mode" = "aws" ]; then
+    if [ "$mode" = "production" ]; then
         print_info "Modo de Execução: AWS Real ☁️"
         echo ""
         echo "  • DynamoDB: AWS Real"
@@ -531,7 +531,7 @@ show_mode() {
         local sqs_url=$(grep "^SQS_QUEUE_URL=" .env | cut -d'=' -f2)
         echo "  • Fila SQS: $sqs_url"
     else
-        print_info "Modo de Execução: Local 🏠"
+        print_info "Modo de Execução: desenvolvimento 🏠"
         echo ""
         echo "  • SQS, DynamoDB: LocalStack (porta 4566)"
         echo "  • Fila SQS: http://localstack:4566/000000000000/togglemaster-events"
