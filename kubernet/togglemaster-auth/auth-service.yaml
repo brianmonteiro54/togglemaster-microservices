@@ -1,0 +1,228 @@
+# ==============================================================================
+# AUTH SERVICE
+# ==============================================================================
+# Descrição: Gerenciamento de API Keys (Go)
+# Porta: 8001
+# Dependências: PostgreSQL (RDS)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# ConfigMap - Configurações do Auth Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: togglemaster-config
+  namespace: togglemaster-auth
+  labels:
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/component: auth
+    app.kubernetes.io/part-of: togglemaster
+data:
+  AUTH_DB_HOST: "auth-service.ccksntymcnsj.us-east-1.rds.amazonaws.com"
+  AUTH_DB_NAME: "authdb"
+  AUTH_DB_PORT: "5432"
+
+---
+# ------------------------------------------------------------------------------
+# Secret - Secrets do Auth Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: togglemaster-secrets
+  namespace: togglemaster-auth
+  labels:
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/component: auth
+    app.kubernetes.io/part-of: togglemaster
+type: Opaque
+data:
+  MASTER_KEY: OTJmMzQyMmJlNzE2ZGY5ZDgwMWJlODBjYjg0NTc3NDM4Y2M0YjRmMjg3ZTM4NDEwZjJmYjA4ZTkxMWM3YTgxMQ==
+
+---
+# ------------------------------------------------------------------------------
+# Deployment - Auth Service
+# ------------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: togglemaster-auth
+  labels:
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/component: auth
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: auth-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: auth-service
+        app.kubernetes.io/component: auth
+        app.kubernetes.io/part-of: togglemaster
+    spec:
+      # ---- Init Container: Constrói DATABASE_URL com senha URL-encoded ----
+      initContainers:
+        - name: build-db-url
+          image: python:3.12-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              python3 << 'EOF'
+              import urllib.parse
+              import os
+
+              user = os.environ.get('DB_USER', '')
+              password = os.environ.get('DB_PASSWORD', '')
+              host = os.environ.get('DB_HOST', '')
+              port = os.environ.get('DB_PORT', '5432')
+              dbname = os.environ.get('DB_NAME', '')
+
+              encoded_user = urllib.parse.quote(user, safe='')
+              encoded_password = urllib.parse.quote(password, safe='')
+
+              db_url = f"postgres://{encoded_user}:{encoded_password}@{host}:{port}/{dbname}?sslmode=require"
+
+              with open('/shared/database_url', 'w') as f:
+                  f.write(db_url)
+
+              print(f"DATABASE_URL criada para host: {host}")
+              EOF
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: AUTH_DB_HOST
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: AUTH_DB_NAME
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: AUTH_DB_PORT
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-rds
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-rds
+                  key: password
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+
+      # ---- Container Principal ----
+      containers:
+        - name: auth-service
+          image: 157489518692.dkr.ecr.us-east-1.amazonaws.com/auth-service:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8001
+              protocol: TCP
+
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export DATABASE_URL=$(cat /shared/database_url)
+              exec /app/auth-service
+
+          env:
+            - name: PORT
+              value: "8001"
+            - name: APP_ENV
+              value: "production"
+            - name: MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: togglemaster-secrets
+                  key: MASTER_KEY
+
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+              readOnly: true
+
+          # ---- Health Checks ----
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ---- Resources ----
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+      # ---- Volumes ----
+      volumes:
+        - name: shared-data
+          emptyDir: {}
+
+      # ---- Pod Distribution ----
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: auth-service
+
+      terminationGracePeriodSeconds: 30
+      restartPolicy: Always
+
+---
+# ------------------------------------------------------------------------------
+# Service - Auth Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: togglemaster-auth
+  labels:
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/component: auth
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: auth-service
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
+      protocol: TCP

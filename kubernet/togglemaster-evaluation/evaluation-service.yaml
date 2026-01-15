@@ -1,0 +1,301 @@
+# ==============================================================================
+# EVALUATION SERVICE (HOT PATH)
+# ==============================================================================
+# Descrição: Avaliação de Feature Flags em tempo real (Go)
+# Porta: 8004
+# Dependências: Redis (ElastiCache), SQS, Flag Service, Targeting Service
+# NOTA: Este é o hot path - otimizado para baixa latência
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# ConfigMap - Configurações do Evaluation Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: togglemaster-config
+  namespace: togglemaster-evaluation
+  labels:
+    app.kubernetes.io/name: evaluation-service
+    app.kubernetes.io/component: evaluation
+    app.kubernetes.io/part-of: togglemaster
+data:
+  # Redis
+  REDIS_URL: "redis://togglemaster-redis.yd2i2m.clustercfg.use1.cache.amazonaws.com:6379"
+  # SQS
+  SQS_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/157489518692/togglemaster-events"
+  # DynamoDB
+  DYNAMODB_TABLE: "ToggleMasterAnalytics"
+  # Service URLs
+  AUTH_SERVICE_URL: "http://auth-service.togglemaster-auth.svc.cluster.local:8001"
+  FLAG_SERVICE_URL: "http://flag-service.togglemaster-flag.svc.cluster.local:8002"
+  TARGETING_SERVICE_URL: "http://targeting-service.togglemaster-targeting.svc.cluster.local:8003"
+
+---
+# ------------------------------------------------------------------------------
+# Secret - Secrets do Evaluation Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: togglemaster-secrets
+  namespace: togglemaster-evaluation
+  labels:
+    app.kubernetes.io/name: evaluation-service
+    app.kubernetes.io/component: evaluation
+    app.kubernetes.io/part-of: togglemaster
+type: Opaque
+data:
+  SERVICE_API_KEY: ""
+  REDIS_PASSWORD: ""
+
+---
+# ------------------------------------------------------------------------------
+# Deployment - Evaluation Service
+# ------------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evaluation-service
+  namespace: togglemaster-evaluation
+  labels:
+    app.kubernetes.io/name: evaluation-service
+    app.kubernetes.io/component: evaluation
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: evaluation-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: evaluation-service
+        app.kubernetes.io/component: evaluation
+        app.kubernetes.io/part-of: togglemaster
+    spec:
+      # ---- Init Container: Constrói REDIS_URL com senha URL-encoded ----
+      initContainers:
+        - name: build-redis-url
+          image: python:3.12-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              python3 << 'EOF'
+              import urllib.parse
+              import os
+
+              redis_url_base = os.environ.get('REDIS_URL_BASE', '')
+              redis_password = os.environ.get('REDIS_PASSWORD', '')
+
+              if redis_password:
+                  encoded_password = urllib.parse.quote(redis_password, safe='')
+                  if '://' in redis_url_base:
+                      parts = redis_url_base.split('://', 1)
+                      protocol = parts[0]
+                      rest = parts[1]
+                      redis_url = f"{protocol}//:{encoded_password}@{rest}"
+                  else:
+                      redis_url = redis_url_base
+              else:
+                  redis_url = redis_url_base
+
+              with open('/shared/redis_url', 'w') as f:
+                  f.write(redis_url)
+
+              print("REDIS_URL configurada com sucesso")
+              EOF
+          env:
+            - name: REDIS_URL_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: REDIS_URL
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: togglemaster-secrets
+                  key: REDIS_PASSWORD
+                  optional: true
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+
+      # ---- Container Principal ----
+      containers:
+        - name: evaluation-service
+          image: 157489518692.dkr.ecr.us-east-1.amazonaws.com/evaluation-service:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8004
+              protocol: TCP
+
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export REDIS_URL=$(cat /shared/redis_url)
+              exec /app/evaluation-service
+
+          env:
+            - name: PORT
+              value: "8004"
+            - name: APP_ENV
+              value: "production"
+            - name: FLAG_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: FLAG_SERVICE_URL
+            - name: TARGETING_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: TARGETING_SERVICE_URL
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: AWS_SQS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: SQS_QUEUE_URL
+            - name: SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: togglemaster-secrets
+                  key: SERVICE_API_KEY
+            # AWS Credentials
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: secret-access-key
+            - name: AWS_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: session-token
+
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+              readOnly: true
+
+          # ---- Health Checks ----
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ---- Resources ----
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+      # ---- Volumes ----
+      volumes:
+        - name: shared-data
+          emptyDir: {}
+
+      # ---- Pod Distribution ----
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: evaluation-service
+
+      terminationGracePeriodSeconds: 30
+      restartPolicy: Always
+
+---
+# ------------------------------------------------------------------------------
+# Service - Evaluation Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: evaluation-service
+  namespace: togglemaster-evaluation
+  labels:
+    app.kubernetes.io/name: evaluation-service
+    app.kubernetes.io/component: evaluation
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: evaluation-service
+  ports:
+    - name: http
+      port: 8004
+      targetPort: 8004
+      protocol: TCP
+
+---
+# ------------------------------------------------------------------------------
+# Ingress - Expõe o Evaluation Service publicamente
+# ------------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: evaluation-service-ingress
+  namespace: togglemaster-evaluation
+  labels:
+    app.kubernetes.io/name: evaluation-service
+    app.kubernetes.io/component: evaluation
+    app.kubernetes.io/part-of: togglemaster
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: toggle.pt
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: evaluation-service
+                port:
+                  number: 8004
+    - host: www.toggle.pt
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: evaluation-service
+                port:
+                  number: 8004

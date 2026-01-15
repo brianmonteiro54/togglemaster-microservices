@@ -1,0 +1,51 @@
+# ==============================================================================
+# TOGGLEMASTER - NAMESPACES
+# ==============================================================================
+# Descrição: Define os namespaces para cada microserviço da plataforma
+# Autor: Platform Team
+# ==============================================================================
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: togglemaster-auth
+  labels:
+    app.kubernetes.io/part-of: togglemaster
+    app.kubernetes.io/component: auth
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: togglemaster-flag
+  labels:
+    app.kubernetes.io/part-of: togglemaster
+    app.kubernetes.io/component: flag
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: togglemaster-targeting
+  labels:
+    app.kubernetes.io/part-of: togglemaster
+    app.kubernetes.io/component: targeting
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: togglemaster-evaluation
+  labels:
+    app.kubernetes.io/part-of: togglemaster
+    app.kubernetes.io/component: evaluation
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: togglemaster-analytics
+  labels:
+    app.kubernetes.io/part-of: togglemaster
+    app.kubernetes.io/component: analytics

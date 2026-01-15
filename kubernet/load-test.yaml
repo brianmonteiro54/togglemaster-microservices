@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-test-heavy
+  namespace: togglemaster-evaluation
+spec:
+  ttlSecondsAfterFinished: 6000
+  parallelism: 2
+  completions: 2
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+        - name: hey
+          image: williamyeh/hey:latest
+          args:
+            - "-z"
+            - "300s"
+            - "-c"
+            - "200"
+            - "-q"
+            - "100"
+            - "http://evaluation-service:8004/health"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      restartPolicy: Never

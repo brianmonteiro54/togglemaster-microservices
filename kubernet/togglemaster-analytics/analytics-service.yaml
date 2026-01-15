@@ -1,0 +1,155 @@
+# ==============================================================================
+# ANALYTICS SERVICE
+# ==============================================================================
+# Descrição: Consumidor de Eventos SQS (Python/Flask)
+# Porta: 8005
+# Dependências: AWS SQS, AWS DynamoDB
+# NOTA: Apenas 1 réplica para evitar processamento duplicado de mensagens
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# ConfigMap - Configurações do Analytics Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: togglemaster-config
+  namespace: togglemaster-analytics
+  labels:
+    app.kubernetes.io/name: analytics-service
+    app.kubernetes.io/component: analytics
+    app.kubernetes.io/part-of: togglemaster
+data:
+  # SQS
+  SQS_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/157489518692/togglemaster-events"
+  # DynamoDB
+  DYNAMODB_TABLE: "ToggleMasterAnalytics"
+
+---
+# ------------------------------------------------------------------------------
+# Deployment - Analytics Service
+# ------------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: togglemaster-analytics
+  labels:
+    app.kubernetes.io/name: analytics-service
+    app.kubernetes.io/component: analytics
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  # IMPORTANTE: Apenas 1 réplica para evitar processamento duplicado
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: analytics-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: analytics-service
+        app.kubernetes.io/component: analytics
+        app.kubernetes.io/part-of: togglemaster
+    spec:
+      # ---- Container Principal ----
+      containers:
+        - name: analytics-service
+          image: 157489518692.dkr.ecr.us-east-1.amazonaws.com/analytics-service:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8005
+              protocol: TCP
+
+          env:
+            - name: PORT
+              value: "8005"
+            - name: APP_ENV
+              value: "production"
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: AWS_SQS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: SQS_QUEUE_URL
+            - name: AWS_DYNAMODB_TABLE
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: DYNAMODB_TABLE
+            # AWS Credentials
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: secret-access-key
+            - name: AWS_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: session-token
+
+          # ---- Health Checks ----
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8005
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8005
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ---- Resources ----
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
+
+      terminationGracePeriodSeconds: 30
+      restartPolicy: Always
+
+---
+# ------------------------------------------------------------------------------
+# Service - Analytics Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: togglemaster-analytics
+  labels:
+    app.kubernetes.io/name: analytics-service
+    app.kubernetes.io/component: analytics
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: analytics-service
+  ports:
+    - name: http
+      port: 8005
+      targetPort: 8005
+      protocol: TCP

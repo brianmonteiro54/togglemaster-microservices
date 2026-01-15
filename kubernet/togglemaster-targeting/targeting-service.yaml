@@ -1,0 +1,220 @@
+# ==============================================================================
+# TARGETING SERVICE
+# ==============================================================================
+# Descrição: Regras de Segmentação (Python/Flask)
+# Porta: 8003
+# Dependências: PostgreSQL (RDS), Auth Service, Flag Service
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# ConfigMap - Configurações do Targeting Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: togglemaster-config
+  namespace: togglemaster-targeting
+  labels:
+    app.kubernetes.io/name: targeting-service
+    app.kubernetes.io/component: targeting
+    app.kubernetes.io/part-of: togglemaster
+data:
+  # Database
+  TARGETING_DB_HOST: "targeting-service.ccksntymcnsj.us-east-1.rds.amazonaws.com"
+  TARGETING_DB_NAME: "targetingdb"
+  TARGETING_DB_PORT: "5432"
+  # Service URLs
+  AUTH_SERVICE_URL: "http://auth-service.togglemaster-auth.svc.cluster.local:8001"
+  FLAG_SERVICE_URL: "http://flag-service.togglemaster-flag.svc.cluster.local:8002"
+
+---
+# ------------------------------------------------------------------------------
+# Deployment - Targeting Service
+# ------------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: targeting-service
+  namespace: togglemaster-targeting
+  labels:
+    app.kubernetes.io/name: targeting-service
+    app.kubernetes.io/component: targeting
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: targeting-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: targeting-service
+        app.kubernetes.io/component: targeting
+        app.kubernetes.io/part-of: togglemaster
+    spec:
+      # ---- Init Container: Constrói DATABASE_URL com senha URL-encoded ----
+      initContainers:
+        - name: build-db-url
+          image: python:3.12-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              python3 << 'EOF'
+              import urllib.parse
+              import os
+
+              user = os.environ.get('DB_USER', '')
+              password = os.environ.get('DB_PASSWORD', '')
+              host = os.environ.get('DB_HOST', '')
+              port = os.environ.get('DB_PORT', '5432')
+              dbname = os.environ.get('DB_NAME', '')
+
+              encoded_user = urllib.parse.quote(user, safe='')
+              encoded_password = urllib.parse.quote(password, safe='')
+
+              db_url = f"postgresql://{encoded_user}:{encoded_password}@{host}:{port}/{dbname}?sslmode=require"
+
+              with open('/shared/database_url', 'w') as f:
+                  f.write(db_url)
+
+              print(f"DATABASE_URL criada para host: {host}")
+              EOF
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: TARGETING_DB_HOST
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: TARGETING_DB_NAME
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: TARGETING_DB_PORT
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: targeting-service-rds
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: targeting-service-rds
+                  key: password
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+
+      # ---- Container Principal ----
+      containers:
+        - name: targeting-service
+          image: 157489518692.dkr.ecr.us-east-1.amazonaws.com/targeting-service:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8003
+              protocol: TCP
+
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export DATABASE_URL=$(cat /shared/database_url)
+              exec gunicorn --bind 0.0.0.0:8003 --workers 4 --timeout 60 app:app
+
+          env:
+            - name: PORT
+              value: "8003"
+            - name: APP_ENV
+              value: "production"
+            - name: AUTH_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: AUTH_SERVICE_URL
+            - name: FLAG_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: FLAG_SERVICE_URL
+
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+              readOnly: true
+
+          # ---- Health Checks ----
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ---- Resources ----
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
+
+      # ---- Volumes ----
+      volumes:
+        - name: shared-data
+          emptyDir: {}
+
+      # ---- Pod Distribution ----
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: targeting-service
+
+      terminationGracePeriodSeconds: 30
+      restartPolicy: Always
+
+---
+# ------------------------------------------------------------------------------
+# Service - Targeting Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: targeting-service
+  namespace: togglemaster-targeting
+  labels:
+    app.kubernetes.io/name: targeting-service
+    app.kubernetes.io/component: targeting
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: targeting-service
+  ports:
+    - name: http
+      port: 8003
+      targetPort: 8003
+      protocol: TCP
