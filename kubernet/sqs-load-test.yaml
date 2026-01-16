@@ -1,0 +1,119 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sqs-load-generator
+  namespace: togglemaster-analytics
+spec:
+  ttlSecondsAfterFinished: 6000
+  parallelism: 10
+  completions: 10
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: sqs-load-generator
+        part-of: togglemaster
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: aws-cli
+          image: amazon/aws-cli:2.15.40
+          imagePullPolicy: IfNotPresent
+          env:
+            # Credenciais via Secret
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: secret-access-key
+            - name: AWS_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: session-token
+
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: QUEUE_URL
+              value: "https://sqs.us-east-1.amazonaws.com/157489518692/togglemaster-events"
+
+            # Carga
+            - name: DURATION_SECONDS
+              value: "300"
+            - name: BATCH_SIZE
+              value: "10"   # max do SQS por batch
+            - name: SLEEP_MS
+              value: "10"   # menor = mais msgs/s
+
+            # Payload
+            - name: FLAG_NAME
+              value: "enable-new-dashboard"
+          command: ["/bin/sh","-lc"]
+          args:
+            - |
+              set -eu
+
+              start=$(date +%s)
+              end=$((start + DURATION_SECONDS))
+
+              i=0
+              while [ "$(date +%s)" -lt "$end" ]; do
+                entries=""
+                n=1
+
+                while [ $n -le $BATCH_SIZE ]; do
+                  i=$((i+1))
+                  msg_id="m${i}"
+
+                  # Alterna usuários:
+                  # ímpar => user-abc (result=false)
+                  # par   => user-123 (result=true)
+                  if [ $((i % 2)) -eq 1 ]; then
+                    user_id="user-abc"
+                    result="false"
+                  else
+                    user_id="user-123"
+                    result="true"
+                  fi
+
+                  # Timestamp UTC no momento do envio
+                  ts="$(date -u +%Y-%m-%dT%H:%M:%S.%NZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+                  # Body exatamente no formato desejado (JSON minificado, result boolean)
+                  msg_body=$(printf '{"user_id":"%s","flag_name":"%s","result":%s,"timestamp":"%s"}' \
+                    "$user_id" "$FLAG_NAME" "$result" "$ts")
+
+                  esc_body=$(printf '%s' "$msg_body" | sed 's/"/\\"/g')
+
+                  if [ -z "$entries" ]; then
+                    entries=$(printf '{"Id":"%s","MessageBody":"%s"}' "$msg_id" "$esc_body")
+                  else
+                    entries=$(printf '%s,{"Id":"%s","MessageBody":"%s"}' "$entries" "$msg_id" "$esc_body")
+                  fi
+
+                  n=$((n+1))
+                done
+
+                batch=$(printf '{"Entries":[%s]}' "$entries")
+
+                aws sqs send-message-batch \
+                  --region "$AWS_REGION" \
+                  --queue-url "$QUEUE_URL" \
+                  --cli-input-json "$batch" >/dev/null
+
+                sleep "$(awk "BEGIN {print $SLEEP_MS/1000}")"
+              done
+
+              echo "Done. Sent ~$i messages from this pod."
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"

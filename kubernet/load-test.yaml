@@ -4,7 +4,7 @@ metadata:
   name: load-test-heavy
   namespace: togglemaster-evaluation
 spec:
-  ttlSecondsAfterFinished: 6000
+  ttlSecondsAfterFinished: 500
   parallelism: 2
   completions: 2
   backoffLimit: 0
