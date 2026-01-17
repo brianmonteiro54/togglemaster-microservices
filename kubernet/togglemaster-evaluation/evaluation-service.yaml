@@ -46,7 +46,7 @@ metadata:
     app.kubernetes.io/part-of: togglemaster
 type: Opaque
 data:
-  SERVICE_API_KEY: ""
+  SERVICE_API_KEY: "dG1fa2V5X2VmZjdjZmZiYjM3M2VhMTNlYzA1ZmI3MWNiNGVhZGRlMGRmMGVkYjY3NDNkMzc4MDA5ZTdiNDMwYTg4MzE5OWE="
   REDIS_PASSWORD: ""
 
 ---
@@ -261,7 +261,7 @@ spec:
 
 ---
 # ------------------------------------------------------------------------------
-# Ingress - Expõe o Evaluation Service publicamente
+# INGRESS - EVALUATION SERVICE
 # ------------------------------------------------------------------------------
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -276,14 +276,15 @@ metadata:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    #nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
     - host: toggle.pt
       http:
         paths:
-          - path: /
-            pathType: Prefix
+          - path: /evaluate(/|$)(.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: evaluation-service
@@ -292,8 +293,8 @@ spec:
     - host: www.toggle.pt
       http:
         paths:
-          - path: /
-            pathType: Prefix
+          - path: /evaluate(/|$)(.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: evaluation-service
