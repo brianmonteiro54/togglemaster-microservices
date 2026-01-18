@@ -1,0 +1,252 @@
+# ==============================================================================
+# FLAG SERVICE
+# ==============================================================================
+# Descrição: CRUD de Feature Flags (Python/Flask)
+# Porta: 8002
+# Dependências: PostgreSQL (RDS), Auth Service
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# ConfigMap - Configurações do Flag Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: togglemaster-config
+  namespace: togglemaster-flag
+  labels:
+    app.kubernetes.io/name: flag-service
+    app.kubernetes.io/component: flag
+    app.kubernetes.io/part-of: togglemaster
+data:
+  # Database
+  FLAG_DB_HOST: "flag-service.ccksntymcnsj.us-east-1.rds.amazonaws.com"
+  FLAG_DB_NAME: "flagdb"
+  FLAG_DB_PORT: "5432"
+  # Service URLs
+  AUTH_SERVICE_URL: "http://auth-service.togglemaster-auth.svc.cluster.local:8001"
+
+---
+# ------------------------------------------------------------------------------
+# Deployment - Flag Service
+# ------------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flag-service
+  namespace: togglemaster-flag
+  labels:
+    app.kubernetes.io/name: flag-service
+    app.kubernetes.io/component: flag
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: flag-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: flag-service
+        app.kubernetes.io/component: flag
+        app.kubernetes.io/part-of: togglemaster
+    spec:
+      # ---- Init Container: Constrói DATABASE_URL com senha URL-encoded ----
+      initContainers:
+        - name: build-db-url
+          image: python:3.12-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              python3 << 'EOF'
+              import urllib.parse
+              import os
+
+              user = os.environ.get('DB_USER', '')
+              password = os.environ.get('DB_PASSWORD', '')
+              host = os.environ.get('DB_HOST', '')
+              port = os.environ.get('DB_PORT', '5432')
+              dbname = os.environ.get('DB_NAME', '')
+
+              encoded_user = urllib.parse.quote(user, safe='')
+              encoded_password = urllib.parse.quote(password, safe='')
+
+              db_url = f"postgresql://{encoded_user}:{encoded_password}@{host}:{port}/{dbname}?sslmode=require"
+
+              with open('/shared/database_url', 'w') as f:
+                  f.write(db_url)
+
+              print(f"DATABASE_URL criada para host: {host}")
+              EOF
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: FLAG_DB_HOST
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: FLAG_DB_NAME
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: FLAG_DB_PORT
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: flag-service-rds
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: flag-service-rds
+                  key: password
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+
+      # ---- Container Principal ----
+      containers:
+        - name: flag-service
+          image: 157489518692.dkr.ecr.us-east-1.amazonaws.com/flag-service:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8002
+              protocol: TCP
+
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export DATABASE_URL=$(cat /shared/database_url)
+              exec gunicorn --bind 0.0.0.0:8002 --workers 2 --threads 2 app:app
+
+          env:
+            - name: PORT
+              value: "8002"
+            - name: APP_ENV
+              value: "production"
+            - name: AUTH_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: togglemaster-config
+                  key: AUTH_SERVICE_URL
+
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+              readOnly: true
+
+          # ---- Health Checks ----
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ---- Resources ----
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
+
+      # ---- Volumes ----
+      volumes:
+        - name: shared-data
+          emptyDir: {}
+
+      # ---- Pod Distribution ----
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: flag-service
+
+      terminationGracePeriodSeconds: 30
+      restartPolicy: Always
+
+---
+# ------------------------------------------------------------------------------
+# Service - Flag Service
+# ------------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: flag-service
+  namespace: togglemaster-flag
+  labels:
+    app.kubernetes.io/name: flag-service
+    app.kubernetes.io/component: flag
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: flag-service
+  ports:
+    - name: http
+      port: 8002
+      targetPort: 8002
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flag-service-ingress
+  namespace: togglemaster-flag
+  labels:
+    app.kubernetes.io/name: flag-service
+    app.kubernetes.io/component: flag
+    app.kubernetes.io/part-of: togglemaster
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    #nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: toggle.pt
+      http:
+        paths:
+          - path: /flags(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: flag-service
+                port:
+                  number: 8002
+    - host: www.toggle.pt
+      http:
+        paths:
+          - path: /flags(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: flag-service
+                port:
+                  number: 8002
