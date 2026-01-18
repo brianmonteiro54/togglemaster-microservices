@@ -4,7 +4,6 @@
 # Descrição: Consumidor de Eventos SQS (Python/Flask)
 # Porta: 8005
 # Dependências: AWS SQS, AWS DynamoDB
-# NOTA: Apenas 1 réplica para evitar processamento duplicado de mensagens
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -39,8 +38,7 @@ metadata:
     app.kubernetes.io/component: analytics
     app.kubernetes.io/part-of: togglemaster
 spec:
-  # IMPORTANTE: Apenas 1 réplica para evitar processamento duplicado
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/name: analytics-service
