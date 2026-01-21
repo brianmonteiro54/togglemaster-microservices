@@ -230,23 +230,14 @@ metadata:
     app.kubernetes.io/part-of: togglemaster
   annotations:
     kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # CORREÇÃO: Evita loop infinito
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
     - host: toggle.pt
-      http:
-        paths:
-          - path: /targeting(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: targeting-service
-                port:
-                  number: 8003
-    - host: www.toggle.pt
       http:
         paths:
           - path: /targeting(/|$)(.*)
